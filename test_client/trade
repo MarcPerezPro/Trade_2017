@@ -1,0 +1,196 @@
+#! /bin/python -OO
+
+from __future__ import print_function
+import sys
+import os
+import time
+import matplotlib.pyplot as plt
+#import pandas as pd
+
+SPEED_MODE = True
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+def Write(str):
+    sys.stdout.write(str)
+    sys.stdout.flush()
+    if not SPEED_MODE:
+        eprint(str.rstrip())
+
+class Data :
+    def __init__ (self, name, ax, color='tab:gray', period=10, BCoeff=1.25) :
+        self.Values = []
+        self.period = period
+        # Moving Average
+        self.MA = 0
+        self.MAValues = []
+        # Standard Deviation
+        self.SD = 0
+        self.SDValues = []
+        # Band Coefficiant
+        self.BCoeff = BCoeff
+        # Upper Band
+        self.UB = 0
+        self.UBValues = []
+        # Lower Band
+        self.LB = 0
+        self.LBValues = []
+        self.ax = ax
+        self.name = name
+        self.color = color
+        ax.set_title(name)
+        self.PlotValues()
+        self.ax.legend()
+
+    def PlotValues (self) :
+        self.ax.plot(self.Values, self.color, label="Value")
+        self.ax.plot(self.UBValues, 'tab:red', label="Upper Band")
+        self.ax.plot(self.LBValues, 'tab:blue', label="Lower Band")
+
+    def Print (self) :
+        eprint(self.name, ": ")
+        #eprint("Values: ", self.Values)
+        eprint("MA: ", self.MA)
+        eprint("SD: ", self.SD)
+        eprint("UB: ", self.UB)
+        eprint("LB: ", self.LB)
+
+class TradeClass :
+    def __init__ (self) :
+        self.File = []
+        f, axArr = plt.subplots(4, sharex=True)
+        self.Crypto = Data("Crypto", axArr[0])
+        self.Raw = Data("Raw", axArr[1])
+        self.Stock = Data("Stock", axArr[2])
+        self.Forex = Data("Forex", axArr[3])
+
+    def Print (self) :
+        self.Crypto.Print()
+        self.Raw.Print()
+        self.Stock.Print()
+        self.Forex.Print()
+
+    def PlotValues (self) :
+        self.Crypto.PlotValues()
+        self.Raw.PlotValues()
+        self.Stock.PlotValues()
+        self.Forex.PlotValues()
+        plt.show()
+        plt.pause(0.001)
+
+    def GetEntry (self, path) :
+        try :
+                os.mkfifo(path)
+        except OSError :
+                pass
+        my_value = -1
+        fifo = open(path, "r")
+        Filestr = ""
+        for line in fifo :
+            Filestr += line
+        fifo.close()
+        self.File = Filestr.split("\n")
+        for line in self.File :
+            value = line.split(":", 1)[-1]
+            if "crypto" in line :
+                self.Crypto.Values.append(float(value))
+            elif "raw_material" in line :
+                self.Raw.Values.append(float(value))
+            elif "stock_exchange" in line :
+                self.Stock.Values.append(float(value))
+            elif "forex" in line :
+                self.Forex.Values.append(float(value))
+
+    def SetBand (self, tab):
+        tab.MA = sum(tab.Values[-tab.period:]) / len(tab.Values[-tab.period:])
+        tab.SD = (sum([(x - tab.MA)**2 for x in tab.Values[-tab.period:]])
+                  / len(tab.Values[-tab.period:]))**0.5
+        tab.UB = tab.MA + (tab.SD * tab.BCoeff)
+        tab.LB = tab.MA - (tab.SD * tab.BCoeff)
+        tab.MAValues.append(tab.MA)
+        tab.SDValues.append(tab.SD)
+        tab.UBValues.append(tab.UB)
+        tab.LBValues.append(tab.LB)
+    def SetBands (self):
+        self.SetBand(self.Crypto)
+        self.SetBand(self.Raw)
+        self.SetBand(self.Stock)
+        self.SetBand(self.Forex)
+
+    def Stats (self):
+        Write("STATS\n")
+
+    def Buy (self):
+        if self.Crypto.Values[-1] < self.Crypto.LB :
+            Write("BUY:1:crypto\n")
+        if self.Raw.Values[-1] < self.Raw.LB :
+            Write("BUY:3:raw_material\n")
+        if self.Stock.Values[-1] < self.Stock.LB :
+            Write("BUY:1:stock_exchange\n")
+        if self.Forex.Values[-1] < self.Forex.LB :
+            Write("BUY:50:forex\n")
+
+    def Sell (self):
+        if self.Crypto.Values[-1] > self.Crypto.UB :
+            Write("SELL:1:crypto\n")
+        if self.Raw.Values[-1] > self.Raw.UB :
+            Write("SELL:3:raw_material\n")
+        if self.Stock.Values[-1] > self.Stock.UB :
+            Write("SELL:1:stock_exchange\n")
+        if self.Forex.Values[-1] > self.Forex.UB :
+            Write("SELL:50:forex\n")
+
+    def SellAll (self):
+        for i in range (0, 50):
+            Write("SELL:1:crypto\n")
+            Write("SELL:3:raw_material\n")
+            Write("SELL:1:stock_exchange\n")
+            Write("SELL:50:forex\n")
+
+trade = TradeClass()
+i = 0
+sleeptime = 0.05
+timeout = 0
+
+#minimum cycles to create a starting moving average
+learningPeriod = 20
+
+path = "../push_index/.index.db"
+mtime = 0
+
+#interactive mode for nonblocking graph
+plt.ion()
+
+plt.ylabel("Price (¤)")
+plt.xlabel("Cycles")
+
+while (timeout < 3):
+    temp_mtime = os.stat(path).st_mtime
+    if (mtime != temp_mtime):
+        mtime = temp_mtime
+        timeout = 0
+
+        trade.GetEntry(path)
+        trade.SetBands()
+        if not SPEED_MODE:
+            trade.PlotValues()
+        if (i > learningPeriod):
+            trade.Buy()
+            trade.Sell()
+        if not SPEED_MODE and not (i % 50):
+            trade.Print()
+            trade.Stats()
+        i += 1
+
+    else:
+        timeout += sleeptime
+        time.sleep(sleeptime)
+
+trade.SellAll()
+Write("EXIT\n")
+
+#prints the graph
+trade.PlotValues()
+plt.ioff()
+plt.show()
