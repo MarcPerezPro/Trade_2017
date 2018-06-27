@@ -4,8 +4,6 @@
 import time
 import sys
 
-CLOCK = 0.05
-
 class Manager:
     
     # Indexes list
@@ -15,7 +13,7 @@ class Manager:
 
         # Default evaluation environment
         self.nb_index = 360 # Nb indexes before exiting
-        self.clock = CLOCK # in seconds
+        self.clock = 0.5 # in seconds
 
         if (self.CheckArgv() is False):
             return

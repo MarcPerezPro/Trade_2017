@@ -123,30 +123,36 @@ class TradeClass :
 
     def Buy (self):
         if self.Crypto.Values[-1] < self.Crypto.LB :
+            for i in range(0, 4):
+                Write("SELL:1:raw_material\n")
             Write("BUY:1:crypto\n")
         if self.Raw.Values[-1] < self.Raw.LB :
-            Write("BUY:3:raw_material\n")
-        if self.Stock.Values[-1] < self.Stock.LB :
-            Write("BUY:1:stock_exchange\n")
-        if self.Forex.Values[-1] < self.Forex.LB :
-            Write("BUY:50:forex\n")
+            for i in range(0, 4):
+                Write("BUY:1:raw_material\n")
+        #if self.Stock.Values[-1] < self.Stock.LB :
+            #Write("BUY:2:stock_exchange\n")
+        #if self.Forex.Values[-1] < self.Forex.LB :
+            #Write("BUY:30:forex\n")
 
     def Sell (self):
         if self.Crypto.Values[-1] > self.Crypto.UB :
             Write("SELL:1:crypto\n")
         if self.Raw.Values[-1] > self.Raw.UB :
-            Write("SELL:3:raw_material\n")
-        if self.Stock.Values[-1] > self.Stock.UB :
-            Write("SELL:1:stock_exchange\n")
-        if self.Forex.Values[-1] > self.Forex.UB :
-            Write("SELL:50:forex\n")
+            for i in range(0, 4):
+                Write("SELL:1:raw_material\n")
+        #if self.Stock.Values[-1] > self.Stock.UB :
+            #Write("SELL:2:stock_exchange\n")
+        #if self.Forex.Values[-1] > self.Forex.UB :
+            #Write("SELL:30:forex\n")
 
     def SellAll (self):
-        for i in range (0, 50):
+        for i in range (0, 100):
             Write("SELL:1:crypto\n")
-            Write("SELL:3:raw_material\n")
-            Write("SELL:1:stock_exchange\n")
-            Write("SELL:50:forex\n")
+            for i in range(0, 4):
+                Write("SELL:1:raw_material\n")
+            #Write("SELL:2:stock_exchange\n")
+            #Write("SELL:30:forex\n")
+            time.sleep(0.05)
 
 trade = TradeClass()
 i = 0
@@ -154,7 +160,7 @@ sleeptime = 0.05
 timeout = 0
 
 #minimum cycles to create a starting moving average
-learningPeriod = 20
+learningPeriod = 11
 
 path = "../push_index/.index.db"
 mtime = 0
@@ -165,7 +171,7 @@ plt.ion()
 plt.ylabel("Price (¤)")
 plt.xlabel("Cycles")
 
-while (timeout < 3):
+while (timeout < 3) and (i < 340) :
     temp_mtime = os.stat(path).st_mtime
     if (mtime != temp_mtime):
         mtime = temp_mtime
